@@ -2924,6 +2924,39 @@ class PipelineSmokeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("content_score", breakdown)
         self.assertIn("signal_score", breakdown)
 
+    async def test_pipeline_aster_listing_trading_points_promo_is_ignored(self) -> None:
+        cache = MockCache()
+        analyzer = MockAnalyzer(importance_score=95, decision="push")
+        notifier = MockNotifier()
+        repository = MockRepository()
+        pipeline = MessagePipeline(
+            cache=cache,
+            analyzer=analyzer,
+            notifier=notifier,
+            repository=repository,
+        )
+
+        await pipeline.process(
+            SourceMessage(
+                source="x",
+                source_chat_id="http://rsshub:1200/twitter/user/Aster_DEX",
+                source_chat_title="Twitter @Aster",
+                source_message_id="tweet-aster-listing",
+                raw_text="Solstice上线SLX永续合约，交易可获1.2倍积分至6月8日",
+                watchlist_category="airdrop_alpha",
+                watchlist_label="撸毛Alpha",
+                watchlist_priority=9,
+            )
+        )
+
+        self.assertEqual(repository.records[0]["ai_decision"], "ignore")
+        self.assertEqual(repository.records[0]["push_status"], "skipped_ignore")
+        self.assertEqual(repository.push_updates, [])
+        self.assertEqual(notifier.payloads, [])
+        analysis = json.loads(repository.records[0]["analysis_json"])
+        self.assertEqual(analysis["decision_override"]["rule"], "aster_listing_trading_points_promo")
+        self.assertEqual(analysis["score_breakdown"]["source_profile"]["key"], "aster_dex")
+
     async def test_pipeline_watch_message_is_pushed_as_observation(self) -> None:
         cache = MockCache()
         analyzer = MockAnalyzer(importance_score=65, decision="watch")

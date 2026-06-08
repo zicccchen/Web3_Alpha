@@ -310,8 +310,9 @@ sources:
     score: 7
     description: >
       BNB Chain DEX 项目账号。
-      只关注活动、积分、奖励、交易赛、任务、claim、season、空投或低成本交互机会。
+      只关注独立活动、任务、claim、season、空投或低成本交互机会。
       上币、listing、普通交易对上线、单纯行情宣传信息一律视为低价值，应输出 ignore，不推送。
+      如果内容是某个新标的/新合约即将上线、上线后交易该标的可获得积分倍数、交易奖励或流动性促销，也属于上币促销，不属于活动，应输出 ignore。
 
   default:
     label: Unknown

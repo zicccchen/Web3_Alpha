@@ -10,6 +10,7 @@ from app.services.event_cluster import EventClusterer
 from app.services.scorer import score_message
 from app.services.signal import signal_level_for_score
 from app.services.source_profiles import match_source_profile
+from app.services.source_decision_overrides import apply_source_decision_overrides
 from app.services.analyzer import normalize_decision
 
 
@@ -75,6 +76,11 @@ class MessagePipeline:
             if source_profile:
                 source_context["source_profile"] = source_profile.as_dict()
             analysis = await self.analyzer.analyze(cleaned.cleaned_text, source_context=source_context)
+            analysis = apply_source_decision_overrides(
+                cleaned.cleaned_text,
+                analysis,
+                source_profile=source_profile.as_dict() if source_profile else None,
+            )
             score = score_message(
                 cleaned.cleaned_text,
                 float(analysis["importance_score"]),
