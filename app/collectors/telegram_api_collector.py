@@ -201,7 +201,7 @@ class TelethonTelegramAdapter:
     ) -> list[TelegramApiMessage]:
         if not self.client:
             return []
-        entity = await self.client.get_entity(channel)
+        entity = await self.client.get_entity(_telegram_entity_ref(channel))
         messages = []
         if after_message_id:
             iterator = self.client.iter_messages(entity, min_id=after_message_id, reverse=True, limit=limit)
@@ -319,3 +319,10 @@ def _safe_int(value: str | int | None) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _telegram_entity_ref(channel: str) -> str | int:
+    text = str(channel).strip()
+    if text.removeprefix("-").isdigit():
+        return int(text)
+    return text

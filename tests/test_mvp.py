@@ -28,6 +28,7 @@ from app.collectors.discord_collector import (
 from app.collectors.telegram_api_collector import (
     TelegramApiCollector,
     TelegramApiMessage,
+    _telegram_entity_ref,
     extract_telegram_raw_text,
     source_message_from_telegram_message,
 )
@@ -568,6 +569,10 @@ telegram_watchlists:
         self.assertEqual(len(watchlists.deduped_channels), 1)
         self.assertEqual(watchlists.match_channel("https://t.me/BaseBuilders").category, "high")
         self.assertEqual(normalize_telegram_channel("https://t.me/s/BaseBuilders"), "basebuilders")
+
+    def test_private_group_numeric_id_resolves_to_int(self) -> None:
+        self.assertEqual(_telegram_entity_ref("-1002422638120"), -1002422638120)
+        self.assertEqual(_telegram_entity_ref("TechFlowDaily"), "TechFlowDaily")
 
     async def test_api_collector_can_start_and_stop(self) -> None:
         pipeline = MockPipeline()

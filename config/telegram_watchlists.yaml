@@ -24,4 +24,5 @@ telegram_watchlists:
   community:
     label: "Community"
     priority: 7
-    channels: []
+    channels:
+      - "-1002422638120"  # 炼金叔A8俱乐部
