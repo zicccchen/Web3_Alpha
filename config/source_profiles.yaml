@@ -296,6 +296,23 @@ sources:
     importance: 6
     score: 6
 
+  Aster_DEX:
+    label: Aster
+    role: ecosystem_project
+    ecosystem: BNB Chain
+    specialty:
+      - dex
+      - campaign
+      - points
+      - airdrop
+      - trading_rewards
+    importance: 7
+    score: 7
+    description: >
+      BNB Chain DEX 项目账号。
+      只关注活动、积分、奖励、交易赛、任务、claim、season、空投或低成本交互机会。
+      上币、listing、普通交易对上线、单纯行情宣传信息一律视为低价值，应输出 ignore，不推送。
+
   default:
     label: Unknown
     role: unknown
