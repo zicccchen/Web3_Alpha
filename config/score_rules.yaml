@@ -1,0 +1,52 @@
+keywords:
+  airdrop: 8
+  claim: 10
+  snapshot: 10
+  points: 6
+  reward: 6
+  rewards: 6
+  incentive: 6
+  incentives: 6
+  retroactive: 10
+  testnet: 5
+  whitelist: 6
+  allowlist: 6
+  campaign: 5
+  quest: 5
+  epoch: 4
+  season: 5
+
+  listing: 8
+  binance: 8
+  coinbase: 8
+  mainnet: 6
+  funding: 8
+  launch: 4
+  partnership: 4
+
+  hack: 15
+  exploit: 15
+  security incident: 15
+  paused: 10
+  withdrawal suspended: 12
+
+risk_keywords:
+  rumor: 10
+  unconfirmed: 10
+  传言: 10
+  未经证实: 10
+  100x: 15
+  1000x: 20
+  gem: 8
+  ape now: 12
+  send funds: 20
+  private key: 30
+  seed phrase: 30
+  助记词: 30
+  私钥: 30
+
+limits:
+  keyword_bonus_max: 12
+  risk_penalty_max: 40
+  final_score_min: 0
+  final_score_max: 100

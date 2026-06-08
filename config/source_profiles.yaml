@@ -1,0 +1,306 @@
+sources:
+  base:
+    label: Base
+    role: official
+    ecosystem: Base
+    specialty:
+      - ecosystem
+      - incentives
+      - season
+      - builder
+    importance: 10
+    score: 14
+    description: >
+      Base 官方账号。
+
+  BuildOnBase:
+    label: Build on Base
+    role: official
+    ecosystem: Base
+    specialty:
+      - builder
+      - grants
+      - hackathon
+    importance: 10
+    score: 12
+
+  baseapp:
+    label: Base App
+    role: official
+    ecosystem: Base
+    specialty:
+      - wallet
+      - app
+      - ecosystem
+    importance: 9
+    score: 9
+
+  jessepollak:
+    label: Jesse Pollak
+    role: founder
+    ecosystem: Base
+    specialty:
+      - base
+      - builder
+      - ecosystem
+    importance: 10
+    score: 12
+    description: >
+      Base 创始人。
+      短消息、暗示、预热信息可能具有高价值。
+
+  zora:
+    label: Zora
+    role: ecosystem_project
+    ecosystem: Base
+    specialty:
+      - nft
+      - creator
+      - token
+    importance: 8
+    score: 9
+
+  farcaster_xyz:
+    label: Farcaster
+    role: ecosystem_project
+    ecosystem: Base
+    specialty:
+      - social
+      - ecosystem
+    importance: 8
+    score: 9
+
+  dwr:
+    label: Dan Romero
+    role: founder
+    ecosystem: Farcaster
+    specialty:
+      - social
+      - ecosystem
+    importance: 8
+    score: 8
+
+  virtuals_io:
+    label: Virtuals
+    role: ecosystem_project
+    ecosystem: Base
+    specialty:
+      - ai_agent
+      - launch
+      - ecosystem
+    importance: 9
+    score: 10
+
+  bankrbot:
+    label: Bankr
+    role: ecosystem_project
+    ecosystem: Base
+    specialty:
+      - trading
+      - wallet
+      - token
+    importance: 8
+    score: 9
+
+  clankeronbase:
+    label: Clanker
+    role: ecosystem_project
+    ecosystem: Base
+    specialty:
+      - ai
+      - meme
+      - token
+    importance: 8
+    score: 8
+
+  AvantisFi:
+    label: Avantis
+    role: ecosystem_project
+    ecosystem: Base
+    specialty:
+      - trading
+      - incentives
+    importance: 8
+    score: 9
+
+  lookonchain:
+    label: Lookonchain
+    role: onchain_monitor
+    ecosystem: Multi-chain
+    specialty:
+      - whale
+      - smart_money
+      - exchange_flow
+    importance: 8
+    score: 9
+
+  spotonchain:
+    label: SpotOnChain
+    role: onchain_monitor
+    ecosystem: Multi-chain
+    specialty:
+      - whale
+      - smart_money
+    importance: 8
+    score: 8
+
+  ArkhamIntel:
+    label: Arkham
+    role: onchain_monitor
+    ecosystem: Multi-chain
+    specialty:
+      - entity
+      - wallet
+    importance: 8
+    score: 8
+
+  ai_9684xtpa:
+    label: ai_9684xtpa
+    role: onchain_monitor
+    ecosystem: Multi-chain
+    specialty:
+      - smart_money
+      - chinese_market
+    importance: 8
+    score: 9
+
+  EmberCN:
+    label: EmberCN
+    role: onchain_monitor
+    ecosystem: Multi-chain
+    specialty:
+      - whale
+      - exchange_flow
+    importance: 8
+    score: 8
+
+  DefiIgnas:
+    label: Ignas
+    role: alpha_hunter
+    ecosystem: DeFi
+    specialty:
+      - airdrop
+      - yield
+      - ecosystem
+    importance: 7
+    score: 8
+
+  Route2FI:
+    label: Route2FI
+    role: alpha_hunter
+    ecosystem: DeFi
+    specialty:
+      - airdrop
+      - yield
+    importance: 7
+    score: 7
+
+  0xResearch:
+    label: 0xResearch
+    role: research
+    ecosystem: Crypto
+    specialty:
+      - research
+      - ecosystem
+    importance: 7
+    score: 7
+
+  paradigm:
+    label: Paradigm
+    role: vc
+    ecosystem: Crypto VC
+    specialty:
+      - funding
+      - startup
+    importance: 7
+    score: 7
+
+  a16zcrypto:
+    label: a16z crypto
+    role: vc
+    ecosystem: Crypto VC
+    specialty:
+      - funding
+      - ecosystem
+    importance: 7
+    score: 7
+
+  variantfund:
+    label: Variant
+    role: vc
+    ecosystem: Crypto VC
+    specialty:
+      - funding
+      - startup
+    importance: 6
+    score: 6
+
+  0xleng1:
+    label: 0xleng1
+    role: chinese_kol
+    ecosystem: Chinese Market
+    specialty:
+      - chinese_market
+      - ecosystem
+    importance: 6
+    score: 6
+
+  Greta0086:
+    label: Greta
+    role: chinese_kol
+    ecosystem: Chinese Market
+    specialty:
+      - alpha
+      - chinese_market
+    importance: 6
+    score: 6
+
+  ZF_lab:
+    label: 追风Lab
+    role: alpha_hunter
+    ecosystem: Chinese Market
+    specialty:
+      - airdrop
+      - points
+      - tge
+    importance: 7
+    score: 7
+
+  AirdropAlchemis:
+    label: 炼金叔叔
+    role: alpha_hunter
+    ecosystem: Chinese Market
+    specialty:
+      - airdrop
+      - interaction
+    importance: 7
+    score: 7
+
+  BroLeon:
+    label: BroLeon
+    role: chinese_kol
+    ecosystem: Chinese Market
+    specialty:
+      - alpha
+      - chinese_market
+    importance: 6
+    score: 6
+
+  hebi555:
+    label: hebi555
+    role: chinese_kol
+    ecosystem: Chinese Market
+    specialty:
+      - alpha
+      - chinese_market
+    importance: 6
+    score: 6
+
+  default:
+    label: Unknown
+    role: unknown
+    ecosystem: unknown
+    importance: 0
+    specialty: []
+    description: >
+      Unknown source.

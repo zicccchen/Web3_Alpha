@@ -1,0 +1,27 @@
+telegram_watchlists:
+
+  media:
+    label: "Telegram媒体"
+    priority: 8
+    channels:
+      - theblockbeats
+      - Odaily_News
+      - TechFlowDaily
+      - BWEnews
+      - hourintel
+      - ai_9684xtpa
+
+  base_alpha:
+    label: "Base Alpha"
+    priority: 10
+    channels: []
+
+  trading:
+    label: "Trading"
+    priority: 9
+    channels: []
+
+  community:
+    label: "Community"
+    priority: 7
+    channels: []

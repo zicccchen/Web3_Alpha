@@ -1,0 +1,60 @@
+watchlists:
+  base_core:
+    label: "Base核心生态"
+    priority: 10
+    description: "Base官方、核心Builder、重点Base原生项目"
+    accounts:
+      - base
+      - BuildOnBase
+      - baseapp
+      - jessepollak
+      - zora
+      - farcaster_xyz
+      - dwr
+      - virtuals_io
+      - bankrbot
+      - clankeronbase
+      - AvantisFi
+
+  airdrop_alpha:
+    label: "撸毛Alpha"
+    priority: 9
+    description: "空投、积分、测试网、交互机会"
+    accounts:
+      - Airdropalertcom
+      - mztacat
+      - Jampzey
+      - moranweb3
+      - LumaoDoggie
+
+  chinese_kol:
+    label: "中文KOL"
+    priority: 7
+    description: "中文市场、项目解读、社区信号"
+    accounts:
+      - 0xleng1
+      - Greta0086
+      - ZF_lab
+      - cnBaseCommunity
+      - AirdropAlchemis
+      - BroLeon
+      - xiaomustock
+      - hebi555
+
+  trading_signal:
+    label: "交易信号"
+    priority: 8
+    description: "链上资金、巨鲸、交易所、行情异动"
+    accounts: []
+
+  us_stock_macro:
+    label: "美股与宏观"
+    priority: 5
+    description: "美股、利率、宏观、AI公司动态"
+    accounts: []
+
+  vc_funding:
+    label: "融资与VC"
+    priority: 6
+    description: "融资、新项目、VC投资动向"
+    accounts: []

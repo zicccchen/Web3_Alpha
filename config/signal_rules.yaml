@@ -1,0 +1,71 @@
+signal_types:
+  airdrop:
+    bonus: 15
+    label: "空投机会"
+
+  points_program:
+    bonus: 12
+    label: "积分活动"
+
+  claim:
+    bonus: 12
+    label: "领取/申领"
+
+  snapshot:
+    bonus: 12
+    label: "快照"
+
+  testnet:
+    bonus: 8
+    label: "测试网交互"
+
+  wallet_tge:
+    bonus: 10
+    label: "钱包/TGE机会"
+
+  exchange_listing:
+    bonus: 6
+    label: "交易所上线"
+
+  token_unlock:
+    bonus: 6
+    label: "代币解锁"
+
+  funding:
+    bonus: 3
+    label: "融资"
+
+  hack:
+    bonus: 10
+    label: "安全事件"
+
+  exploit:
+    bonus: 10
+    label: "漏洞攻击"
+
+  partnership:
+    bonus: 2
+    label: "合作"
+
+  governance:
+    bonus: 1
+    label: "治理"
+
+  macro:
+    bonus: 0
+    label: "宏观资讯"
+
+  ipo:
+    bonus: 0
+    label: "IPO资讯"
+
+  market_news:
+    bonus: 0
+    label: "普通市场资讯"
+
+  unknown:
+    bonus: 0
+    label: "未知"
+
+limits:
+  signal_bonus_max: 15

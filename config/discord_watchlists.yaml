@@ -1,0 +1,39 @@
+discord_watchlists:
+
+  base:
+    label: "Base Discord"
+    enabled: true
+    project: "Base"
+    ecosystem: "Base"
+    priority: 10
+    channels:
+      - channel_id: "1337456714987077742"
+        name: "community-announcements"
+        type: "announcement"
+
+  kui4:
+    label: "kui4 Discord"
+    enabled: true
+    project: "kui4"
+    ecosystem: "Unknown"
+    priority: 7
+    channels:
+      - channel_id: "1402517669550231623"
+        name: "kui4"
+        type: "project-news"
+
+  zora:
+    label: "Zora Discord"
+    enabled: false
+    project: "Zora"
+    ecosystem: "Base"
+    priority: 8
+    channels: []
+
+  virtuals:
+    label: "Virtuals Discord"
+    enabled: false
+    project: "Virtuals"
+    ecosystem: "Base"
+    priority: 8
+    channels: []
