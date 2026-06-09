@@ -314,6 +314,126 @@ sources:
       上币、listing、普通交易对上线、单纯行情宣传信息一律视为低价值，应输出 ignore，不推送。
       如果内容是某个新标的/新合约即将上线、上线后交易该标的可获得积分倍数、交易奖励或流动性促销，也属于上币促销，不属于活动，应输出 ignore。
 
+  Airdropalertcom:
+    label: AirdropAlert
+    role: media
+    ecosystem: Multi-chain
+    specialty:
+      - airdrop
+      - campaign
+      - task_discovery
+    importance: 6
+    score: 5
+    description: >
+      空投信息聚合媒体。
+      适合发现新活动和新项目。
+      通常不是一手信源。
+      如果只是转载活动信息，默认 watch。
+      如果包含官方链接、明确任务、积分规则、截止时间或 claim 信息，可以提升到 push。
+
+  mztacat:
+    label: mztacat
+    role: chinese_kol
+    ecosystem: Chinese Market
+    specialty:
+      - airdrop
+      - points
+      - alpha
+    importance: 6
+    score: 5
+    description: >
+      中文撸毛和空投 KOL。
+      经常分享项目交互、积分活动和社区线索。
+      具有一定参考价值，但不是官方来源。
+      个人观点和猜测默认 watch。
+      出现官方链接、活动入口、快照、领取规则时可提升。
+
+  Jampzey:
+    label: Jampzey
+    role: alpha_hunter
+    ecosystem: Multi-chain
+    specialty:
+      - airdrop
+      - points
+      - speculation
+      - low_confidence_alpha
+    importance: 5
+    score: 4
+    description: >
+      个人空投和撸毛线索账号。
+      适合发现早期 Alpha。
+      可信度中等偏低。
+      没有官方来源、明确活动入口、奖励机制或时间窗口时不要 push。
+      以 watch 为主。
+
+  moranweb3:
+    label: MoranWeb3
+    role: chinese_kol
+    ecosystem: Chinese Market
+    specialty:
+      - web3
+      - airdrop
+      - ecosystem
+    importance: 6
+    score: 5
+    description: >
+      中文 Web3 研究和生态观察账号。
+      更适合作为趋势和生态参考。
+      不应因为单条观点直接 push。
+      如果涉及明确项目活动、积分、测试网或生态激励，可以 watch 或 push。
+
+  LumaoDoggie:
+    label: LumaoDoggie
+    role: alpha_hunter
+    ecosystem: Multi-chain
+    specialty:
+      - airdrop
+      - points
+      - task_discovery
+    importance: 5
+    score: 4
+    description: >
+      撸毛线索发现账号。
+      擅长发现新活动和新项目。
+      但很多内容属于早期猜测。
+      默认 watch。
+      只有出现官方证明、明确交互路径或奖励规则时才考虑 push。
+
+  cnBaseCommunity:
+    label: Base 中文社区
+    role: community
+    ecosystem: Base
+    specialty:
+      - base
+      - community
+      - ecosystem_updates
+    importance: 7
+    score: 6
+    description: >
+      Base 中文社区账号。
+      对 Base 生态动态、社区活动和 Builder 信息有较高参考价值。
+      社区讨论默认 watch。
+      如果出现官方活动、Season、积分、Builder 激励、Grant 或生态公告，可提升为 push。
+
+  xiaomustock:
+    label: XiaomuStock
+    role: equity_research
+    ecosystem: US Equity
+    specialty:
+      - us_stock
+      - macro
+      - crypto_equity
+      - liquidity
+      - market_structure
+    importance: 8
+    score: 8
+    description: >
+      中文美股研究型 KOL。
+      从 Crypto 转向美股研究，对市场结构、流动性、科技股、AI 板块和 Crypto Equity 具有较高研究能力。
+      其观点不应被视为普通社区情绪，默认 decision 可按 watch 处理。
+      如果涉及 Coinbase、Circle、Robinhood、Strategy、Bitcoin ETF、Stablecoin、AI + Crypto、流动性变化、美股风险偏好变化或 Crypto Equity 信号，应提高优先级。
+      对重要宏观变化、美股风险偏好变化、Crypto Equity 信号，watch 可以直接升级为 push_candidate。
+
   default:
     label: Unknown
     role: unknown
