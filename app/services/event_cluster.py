@@ -42,6 +42,8 @@ GENERIC_SYMBOLS = {
 }
 
 KNOWN_PROJECTS = {
+    "humanity",
+    "humanityprotocol",
     "piggybank",
     "lab",
     "base",
@@ -68,6 +70,7 @@ KNOWN_PROJECTS = {
 }
 
 KNOWN_TOKENS = {
+    "h",
     "btc",
     "eth",
     "sol",
@@ -89,6 +92,16 @@ GENERIC_ASSET_TOKENS = {
 }
 
 KEY_PHRASE_ALIASES = {
+    "private_key_leak": ("私钥泄露", "私钥泄漏", "private key leak", "private key leaked"),
+    "stolen_funds": ("被盗", "盗取", "黑客", "stolen", "theft", "drain"),
+    "token_mint": ("铸造", "增发", "mint", "minted"),
+    "selloff": ("抛售", "砸盘", "套现", "selloff", "sell-off", "dump"),
+    "price_crash": ("暴跌", "归零", "闪崩", "crash", "plunge"),
+    "proxy_admin": ("代理管理员", "管理员权限", "proxy admin"),
+    "dex_cex_gap": ("价差", "链上价格", "永续价", "perp price", "price gap"),
+    "funding_rate": ("资金费率", "funding rate"),
+    "market_maker": ("做市", "market maker", "market making"),
+    "insider": ("监守自盗", "自导自演", "提前归集", "insider"),
     "short_loss": ("做空亏", "做空气亏", "空亏", "short loss", "short_loss"),
     "short": ("做空", "short"),
     "loss": ("亏损", "亏", "loss"),
@@ -278,8 +291,9 @@ def score_event_candidate(
     message_created_at: datetime | None = None,
 ) -> EventMatchDetail:
     candidate_title = getattr(event, "event_title", "") or ""
-    candidate_summary = getattr(event, "event_summary", "") or getattr(event, "latest_summary", "") or ""
-    candidate_text = " ".join(part for part in (candidate_title, candidate_summary) if part)
+    candidate_summary = getattr(event, "event_summary", "") or ""
+    candidate_latest_summary = getattr(event, "latest_summary", "") or ""
+    candidate_text = " ".join(part for part in (candidate_title, candidate_summary, candidate_latest_summary) if part)
     candidate_features = extract_event_features(candidate_text)
 
     entity_overlap = sorted(
@@ -318,8 +332,18 @@ def score_event_candidate(
         key_phrase_overlap=key_phrase_overlap,
         time_distance_hours=time_distance_hours,
     )
+    humanity_security_match = _humanity_security_context_match(
+        entity_overlap=entity_overlap,
+        current_key_phrases=current_features.key_phrases,
+        candidate_key_phrases=candidate_features.key_phrases,
+        time_distance_hours=time_distance_hours,
+    )
+    strong_match = strong_match or humanity_security_match
     matched = strong_match or final_score >= EVENT_MATCH_THRESHOLD or title_similarity >= TITLE_SIMILARITY_THRESHOLD
-    if strong_match:
+    if humanity_security_match:
+        reason = "strong_humanity_security_context_match"
+        final_score = max(final_score, 0.92)
+    elif strong_match:
         reason = "strong_entity_token_time_match"
         final_score = max(final_score, 0.92)
     elif final_score >= EVENT_MATCH_THRESHOLD:
@@ -371,6 +395,10 @@ def extract_event_features(text: str) -> EventFeatures:
     for symbol in symbols:
         if len(symbol) >= 3 and symbol not in GENERIC_SYMBOLS:
             entities.add(symbol)
+    if _contains_humanity_h_token(normalized):
+        entities.update({"humanity", "h"})
+        projects.add("humanity")
+        tokens.add("h")
     key_phrases = {
         normalized_key
         for normalized_key, aliases in KEY_PHRASE_ALIASES.items()
@@ -504,11 +532,55 @@ def _strong_match(
         return True
     if "zec" in entity_set and {"exploit", "infinite_mint"} & key_phrase_set:
         return True
+    if {"humanity", "h"} & entity_set and _has_humanity_security_overlap(key_phrase_set):
+        return True
     if len(important_entities) >= 2 and (key_phrase_set or number_overlap):
         return True
     if len(important_entities) >= 1 and len(key_phrase_set) >= 2:
         return True
     return False
+
+
+def _contains_humanity_h_token(text: str) -> bool:
+    lower = text.lower()
+    if "humanity" in lower:
+        return True
+    return bool(
+        re.search(r"(?<![A-Za-z0-9])\$H(?![A-Za-z0-9])", text)
+        or re.search(r"(?<![A-Za-z0-9])H(?:代币|鏈上|链上|全网|合约|永续|资金费率)", text)
+    )
+
+
+def _has_humanity_security_overlap(key_phrase_set: set[str]) -> bool:
+    security_phrases = {
+        "private_key_leak",
+        "stolen_funds",
+        "token_mint",
+        "selloff",
+        "price_crash",
+        "proxy_admin",
+        "dex_cex_gap",
+        "funding_rate",
+        "market_maker",
+        "insider",
+        "exploit",
+        "hack",
+        "infinite_mint",
+    }
+    return bool(key_phrase_set & security_phrases)
+
+
+def _humanity_security_context_match(
+    entity_overlap: list[str],
+    current_key_phrases: set[str],
+    candidate_key_phrases: set[str],
+    time_distance_hours: float | None,
+) -> bool:
+    if time_distance_hours is not None and time_distance_hours > 24:
+        return False
+    if not ({"humanity", "h"} & set(entity_overlap)):
+        return False
+    return _has_humanity_security_overlap(current_key_phrases) and _has_humanity_security_overlap(candidate_key_phrases)
 
 
 def _time_distance_hours(left: datetime | None, right: datetime | None) -> float | None:

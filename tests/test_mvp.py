@@ -1871,6 +1871,55 @@ class EventClusterTests(unittest.TestCase):
         self.assertEqual(match.event.id, 1)
         self.assertGreaterEqual(match.similarity, 0.68)
 
+    def test_humanity_h_token_features_are_normalized(self) -> None:
+        features = extract_event_features("Humanity基金会成员私钥泄漏致被盗3000万美元，$H暴跌85%。")
+
+        self.assertIn("humanity", features.entities)
+        self.assertIn("h", features.tokens)
+        self.assertIn("private_key_leak", features.key_phrases)
+        self.assertIn("stolen_funds", features.key_phrases)
+        self.assertIn("price_crash", features.key_phrases)
+
+    def test_humanity_security_updates_match_existing_h_event(self) -> None:
+        existing = SimpleNamespace(
+            id=1385,
+            event_title="$H增发并抛售换BNB事件",
+            event_summary="Specter监测到1亿枚$H被增发并正被抛售换成BNB。",
+            latest_summary="H代币在BSC上代理管理员权限被接管，攻击者额外增发1亿枚扩大风险。",
+            last_seen_at=datetime(2026, 6, 9, 3, 5, tzinfo=timezone.utc),
+        )
+
+        match = best_event_match(
+            "Humanity私钥泄露致代币暴跌事件",
+            "Humanity被盗3100万美元，一把私钥导致代币价格暴跌90%。",
+            "Humanity基金会成员私钥泄漏致被盗3000万美元，$H暴跌85%。",
+            [existing],
+        )
+
+        self.assertIsNotNone(match)
+        self.assertEqual(match.event.id, 1385)
+        self.assertGreaterEqual(match.similarity, 0.68)
+
+    def test_humanity_market_structure_updates_match_existing_h_event(self) -> None:
+        existing = SimpleNamespace(
+            id=1385,
+            event_title="$H增发并抛售换BNB事件",
+            event_summary="Specter监测到1亿枚$H被增发并正被抛售换成BNB。",
+            latest_summary="Humanity被盗3100万美元，一把私钥导致代币价格暴跌90%。",
+            last_seen_at=datetime(2026, 6, 9, 3, 5, tzinfo=timezone.utc),
+        )
+
+        match = best_event_match(
+            "H合约资金费率异常波动事件",
+            "H全网资金费率转为极端负值，Binance费率异常上升。",
+            "H链上价格跌至0.003美元，Binance永续约0.06美元，价差扩大至20倍。",
+            [existing],
+        )
+
+        self.assertIsNotNone(match)
+        self.assertEqual(match.event.id, 1385)
+        self.assertGreaterEqual(match.similarity, 0.68)
+
     def test_rank_event_candidates_returns_debug_details(self) -> None:
         existing = SimpleNamespace(
             id=685,
