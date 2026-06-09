@@ -6,7 +6,7 @@ from app.core.logging import get_logger
 from app.schemas.message import SourceMessage
 from app.services.cleaner import clean_message
 from app.services.duplicates import NO_DUPLICATE, find_possible_duplicate
-from app.services.event_cluster import EventClusterer
+from app.services.event_cluster import EventClusterer, extract_event_features
 from app.services.scorer import score_message
 from app.services.signal import signal_level_for_score
 from app.services.source_profiles import match_source_profile
@@ -347,6 +347,12 @@ class MessagePipeline:
             event = await self.repository.get_event(event_id)
             if not event:
                 return {"event_update_level": "minor", "reason": "未找到已存在事件，按保守策略不重复推送"}
+            if _is_repeated_event_update(event, cleaned_text, analysis):
+                return {
+                    "event_update_level": "minor",
+                    "decision": "ignore",
+                    "reason": "新消息与该事件最新摘要共享核心实体和事件动作，判定为同一事实重复报道，不再次推送。",
+                }
             return await self.analyzer.analyze_event_update(
                 event_title=event.event_title,
                 event_summary=event.event_summary,
@@ -372,3 +378,34 @@ def _push_status_for_decision(decision: str) -> str:
 
 def _should_push_decision(decision: str) -> bool:
     return decision in {"push", "watch"}
+
+
+def _is_repeated_event_update(event, cleaned_text: str, analysis: dict) -> bool:
+    latest_summary = getattr(event, "latest_summary", None)
+    if not latest_summary:
+        return False
+    current_text = " ".join(
+        part
+        for part in (
+            analysis.get("event_title"),
+            analysis.get("summary_zh"),
+            cleaned_text,
+        )
+        if part
+    )
+    current_features = extract_event_features(current_text)
+    latest_features = extract_event_features(str(latest_summary))
+    current_entities = current_features.entities | current_features.projects | current_features.tokens
+    latest_entities = latest_features.entities | latest_features.projects | latest_features.tokens
+    shared_entities = _core_event_entities(current_entities & latest_entities)
+    shared_actions = current_features.key_phrases & latest_features.key_phrases
+    if len(shared_entities) >= 2 and shared_actions:
+        return True
+    if len(shared_entities) >= 3:
+        return True
+    return False
+
+
+def _core_event_entities(entities: set[str]) -> set[str]:
+    generic = {"btc", "eth", "sol", "usdt", "usdc", "bnb", "usd", "u"}
+    return {entity for entity in entities if entity not in generic}

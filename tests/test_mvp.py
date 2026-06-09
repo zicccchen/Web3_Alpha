@@ -2688,6 +2688,58 @@ class PipelineSmokeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(notifier.payloads[1]["ai_decision"], "watch")
         self.assertTrue(notifier.payloads[1]["event_upgrade"])
 
+    async def test_pipeline_repeated_event_latest_summary_is_not_pushed_as_upgrade(self) -> None:
+        cache = MockCache()
+        notifier = MockNotifier()
+        repository = MockRepository()
+        analyzer = SequenceAnalyzer(
+            [
+                {
+                    "event_title": "Binance上线TradFi永续合约",
+                    "summary_zh": "Binance将上线NFLX、COST等美股TradFi永续合约，最高20倍杠杆。",
+                    "decision": "watch",
+                    "signal_type": "market_news",
+                    "importance_score": 55,
+                },
+                {
+                    "event_title": "币安上线NFLX等5个U本位永续合约",
+                    "summary_zh": "币安将于6月9日上线nflx、cost等5个U本位永续合约，最高20倍杠杆。",
+                    "decision": "watch",
+                    "signal_type": "market_news",
+                    "importance_score": 60,
+                },
+            ],
+            event_updates=[{"event_update_level": "major", "decision": "push", "reason": "AI误判为重大升级"}],
+        )
+        pipeline = MessagePipeline(cache=cache, analyzer=analyzer, notifier=notifier, repository=repository)
+
+        await pipeline.process(
+            SourceMessage(
+                source="telegram",
+                source_chat_id="BlockBeats",
+                source_chat_title="BlockBeats",
+                source_message_id=40_001,
+                raw_text="Binance将上线NFLX、COST等美股TradFi永续合约，最高20倍杠杆。",
+            )
+        )
+        await pipeline.process(
+            SourceMessage(
+                source="telegram",
+                source_chat_id="Odaily",
+                source_chat_title="Odaily",
+                source_message_id=40_002,
+                raw_text="币安将于6月9日上线nflx、cost等5个U本位永续合约，最高20倍杠杆。",
+            )
+        )
+
+        self.assertEqual(repository.records[0]["push_status"], "pending")
+        self.assertEqual(repository.records[1]["push_status"], "skipped_event_duplicate")
+        self.assertEqual(repository.push_updates, [(1, "sent", None)])
+        self.assertEqual(len(notifier.payloads), 1)
+        analysis = json.loads(repository.records[1]["analysis_json"])
+        self.assertEqual(analysis["event_update"]["event_update_level"], "minor")
+        self.assertIn("重复报道", analysis["event_update"]["reason"])
+
     async def test_pipeline_possible_duplicate_major_event_update_is_pushed(self) -> None:
         cache = MockCache()
         notifier = MockNotifier()
