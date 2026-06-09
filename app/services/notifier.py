@@ -26,6 +26,9 @@ class FeishuNotifier:
 
     async def notify(self, payload: dict) -> NotificationResult:
         card = build_feedback_card(payload)
+        return await self.notify_card(card)
+
+    async def notify_card(self, card: dict) -> NotificationResult:
         if self.app_id and self.app_secret and self.chat_id:
             return await self._notify_with_app_bot(card)
         return await self._notify_with_webhook(card)

@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     push_daily_limit: int = Field(default=30, alias="PUSH_DAILY_LIMIT")
     push_a_level_hourly_limit: int = Field(default=5, alias="PUSH_A_LEVEL_HOURLY_LIMIT")
     push_s_level_hourly_limit: int = Field(default=20, alias="PUSH_S_LEVEL_HOURLY_LIMIT")
+    daily_report_enabled: bool = Field(default=False, alias="DAILY_REPORT_ENABLED")
+    daily_report_hour: int = Field(default=23, alias="DAILY_REPORT_HOUR")
+    daily_report_timezone: str = Field(default="Asia/Shanghai", alias="DAILY_REPORT_TIMEZONE")
 
     @field_validator(
         "telegram_channels",

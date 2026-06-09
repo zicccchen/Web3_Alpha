@@ -34,6 +34,11 @@ from app.collectors.telegram_api_collector import (
 )
 from app.services import pipeline as pipeline_module
 from app.services.calibration import build_calibration_report
+from app.services.daily_quality_report import (
+    build_daily_quality_report_card,
+    build_quality_warnings,
+    push_daily_quality_report,
+)
 from app.schemas.message import SourceMessage
 from app.services.notifier import NotificationResult
 from app.services.notifier import build_app_bot_message
@@ -1599,6 +1604,113 @@ class CalibrationReportTests(unittest.TestCase):
             "watchlist_category": watchlist_category,
             "watchlist_label": watchlist_label,
         }
+
+
+class DailyQualityReportTests(unittest.IsolatedAsyncioTestCase):
+    def _report(self) -> dict:
+        return {
+            "time_range": {"hours": 24, "start": "2026-06-08T00:00:00+00:00", "end": "2026-06-09T00:00:00+00:00"},
+            "pipeline": {
+                "records_count": 100,
+                "analyses_count": 100,
+                "events_count": 20,
+                "event_records_count": 100,
+                "ai_failed_count": 1,
+            },
+            "sources": {
+                "by_platform": {"telegram": 50, "telegram_public": 10, "x": 30, "discord": 10},
+                "top_sources_by_records": [{"source_platform": "x", "source": "Twitter @base", "count": 12}],
+                "top_sources_by_push": [{"source_platform": "telegram", "source": "@TechFlowDaily", "count": 4}],
+                "source_error_count": 0,
+            },
+            "decisions": {
+                "push_count": 40,
+                "watch_count": 30,
+                "ignore_count": 30,
+                "push_sent_count": 20,
+                "watch_sent_count": 15,
+                "skipped_ignore_count": 30,
+                "skipped_event_duplicate_count": 0,
+                "failed_push_count": 1,
+            },
+            "events": {
+                "new_event_count": 20,
+                "merged_event_count": 1,
+                "event_duplicate_skipped_count": 0,
+                "upgrade_sent_count": 2,
+                "top_events": [
+                    {
+                        "event_id": 123,
+                        "event_title": "Base Season 活动",
+                        "latest_summary": "Base Season 新增积分规则",
+                        "message_count": 4,
+                        "source_count": 3,
+                        "max_score": 91,
+                        "ai_decision": "push",
+                        "feedback": "good",
+                        "last_seen_at": "2026-06-09T00:00:00+00:00",
+                    }
+                ],
+            },
+            "feedback": {
+                "good_count": 1,
+                "bad_count": 2,
+                "ignore_count": 0,
+                "feedback_rate": 0.03,
+                "push_bad_rate": 0.5,
+                "watch_good_rate": 0.5,
+                "latest_feedback": [],
+            },
+            "source_profiles": {
+                "known_source_count": 60,
+                "unknown_source_count": 40,
+                "unknown_source_rate": 0.4,
+                "top_unknown_sources": [{"source": "Twitter @unknown", "count": 5}],
+            },
+            "quality_warnings": [],
+        }
+
+    def test_quality_warnings_trigger_for_bad_operating_signals(self) -> None:
+        warnings = build_quality_warnings(self._report())
+
+        self.assertIn("Unknown source rate is high. Consider adding source_profiles.", warnings)
+        self.assertIn("Feishu push failures detected.", warnings)
+        self.assertIn("AI analysis failures detected.", warnings)
+        self.assertIn("Event dedup may be weak. Check Event Cluster.", warnings)
+        self.assertIn("Push/Watch ratio is high. User profile or AI prompt may be too loose.", warnings)
+        self.assertIn("Push bad rate is high. Need calibration.", warnings)
+        self.assertIn("Feedback rate is low. Calibration data may be insufficient.", warnings)
+
+    def test_daily_quality_report_card_contains_core_sections(self) -> None:
+        report = self._report()
+        report["quality_warnings"] = build_quality_warnings(report)
+
+        card = build_daily_quality_report_card(report)
+        text = "\n".join(element.get("content", "") for element in card["elements"])
+
+        self.assertEqual(card["header"]["title"]["content"], "【Web3 Alpha Daily Quality Report】")
+        self.assertIn("今日采集 records", text)
+        self.assertIn("Push / Watch / Ignore", text)
+        self.assertIn("事件重复拦截数", text)
+        self.assertIn("Top 5 Events", text)
+        self.assertIn("Base Season 活动", text)
+        self.assertIn("Quality Warnings", text)
+
+    async def test_push_daily_quality_report_uses_mock_notifier(self) -> None:
+        class MockReportNotifier:
+            def __init__(self) -> None:
+                self.cards = []
+
+            async def notify_card(self, card: dict) -> NotificationResult:
+                self.cards.append(card)
+                return NotificationResult(sent=True)
+
+        notifier = MockReportNotifier()
+        result = await push_daily_quality_report(self._report(), notifier)
+
+        self.assertTrue(result.sent)
+        self.assertEqual(len(notifier.cards), 1)
+        self.assertEqual(notifier.cards[0]["header"]["title"]["content"], "【Web3 Alpha Daily Quality Report】")
 
 
 class MessageFormatTests(unittest.TestCase):

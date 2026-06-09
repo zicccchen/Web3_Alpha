@@ -556,6 +556,48 @@ curl "http://127.0.0.1:8000/calibration/report?days=7"
 
 系统只生成建议，不会自动修改配置。
 
+## Daily Quality Report
+
+生成最近 N 小时系统质量日报：
+
+```bash
+curl "http://127.0.0.1:8000/reports/daily-quality?hours=24"
+```
+
+手动推送日报到飞书：
+
+```bash
+curl -X POST "http://127.0.0.1:8000/reports/daily-quality/push?hours=24"
+```
+
+日报用于判断是否需要调整 `user_profile.yaml`、`source_profiles.yaml`、watchlist 或 Event Cluster。第一版只实现手动接口，定时任务配置已预留：
+
+```env
+DAILY_REPORT_ENABLED=false
+DAILY_REPORT_HOUR=23
+DAILY_REPORT_TIMEZONE=Asia/Shanghai
+```
+
+核心字段：
+
+- `pipeline`：records、analyses、events、event_records 和 AI 失败数量。
+- `sources`：各平台采集量、记录最多来源、推送最多来源。
+- `decisions`：Push / Watch / Ignore 决策量、推送成功/失败、ignore 和 event duplicate 拦截量。
+- `events`：新事件、合并事件、重复事件拦截、事件升级推送、Top Events。
+- `feedback`：good / bad / ignore、反馈率、push bad rate、watch good rate。
+- `source_profiles`：已识别来源、未知来源、未知来源比例和 Top unknown sources。
+- `quality_warnings`：自动生成的质量预警。
+
+`quality_warnings` 含义：
+
+- `Unknown source rate is high`：未知来源比例过高，优先补 `source_profiles.yaml`。
+- `Feishu push failures detected`：飞书推送失败，需要检查 webhook / app bot。
+- `AI analysis failures detected`：AI 分析失败，需要检查 API key、模型或网络。
+- `Event dedup may be weak`：采集量高但事件重复拦截低，优先检查 Event Cluster。
+- `Push/Watch ratio is high`：Push/Watch 占比过高，可能需要收紧 user profile 或 prompt。
+- `Push bad rate is high`：Push 被标 bad 比例过高，需要看 Calibration Report。
+- `Feedback rate is low`：反馈数据不足，校准结论可信度低。
+
 ## API 总览
 
 基础：
@@ -603,6 +645,8 @@ curl http://127.0.0.1:8000/sources/stats
 ```bash
 curl http://127.0.0.1:8000/feedback/stats
 curl "http://127.0.0.1:8000/calibration/report?days=7"
+curl "http://127.0.0.1:8000/reports/daily-quality?hours=24"
+curl -X POST "http://127.0.0.1:8000/reports/daily-quality/push?hours=24"
 ```
 
 ## 启动和验证

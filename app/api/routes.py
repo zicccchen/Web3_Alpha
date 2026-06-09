@@ -13,9 +13,11 @@ from app.db.models import CollectorState, Event, Feedback, TelegramMessage
 from app.db.session import get_db_session
 from app.core.logging import get_logger
 from app.services.calibration import build_calibration_report
+from app.services.daily_quality_report import build_daily_quality_report, push_daily_quality_report
 from app.services.duplicates import DuplicateBackfillResult, apply_backfill_marks, backfill_possible_duplicates
 from app.services.event_backfill import format_event_backfill_payload, plan_event_backfill
 from app.services.event_cluster import extract_event_features, normalize_event_title, rank_event_candidates
+from app.services.notifier import FeishuNotifier
 
 
 router = APIRouter()
@@ -512,6 +514,28 @@ async def calibration_report(
         for message, event_title in result.all()
     ]
     return build_calibration_report(messages, days=days)
+
+
+@router.get("/reports/daily-quality")
+async def daily_quality_report(
+    hours: int = Query(default=24, ge=1, le=24 * 30),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    return await build_daily_quality_report(db, hours=hours)
+
+
+@router.post("/reports/daily-quality/push")
+async def push_daily_quality_report_endpoint(
+    hours: int = Query(default=24, ge=1, le=24 * 30),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    report = await build_daily_quality_report(db, hours=hours)
+    result = await push_daily_quality_report(report, FeishuNotifier())
+    return {
+        "sent": result.sent,
+        "error": result.error,
+        "report": report,
+    }
 
 
 async def _refresh_event_stats(db: AsyncSession, event_ids: set[int]) -> None:
