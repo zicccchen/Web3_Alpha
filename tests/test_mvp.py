@@ -496,6 +496,108 @@ class AnalyzerTests(unittest.TestCase):
 
         self.assertEqual(payload["decision"], "watch")
 
+    def test_parse_event_update_downgrades_major_without_new_facts(self) -> None:
+        analyzer = AIAnalyzer.__new__(AIAnalyzer)
+        payload = analyzer._parse_event_update_json(
+            """
+            {
+              "upgrade_level": "major",
+              "has_new_facts": false,
+              "new_facts": [],
+              "is_substantive_update": false,
+              "should_push_upgrade": true,
+              "reason": "另一家媒体重复报道，标题更夸张",
+              "push_summary": "none"
+            }
+            """
+        )
+
+        self.assertEqual(payload["event_update_level"], "minor")
+        self.assertFalse(payload["should_push_upgrade"])
+        self.assertEqual(payload["decision"], "ignore")
+
+    def test_parse_event_update_downgrades_exaggerated_title_without_new_facts(self) -> None:
+        analyzer = AIAnalyzer.__new__(AIAnalyzer)
+        payload = analyzer._parse_event_update_json(
+            """
+            {
+              "upgrade_level": "critical",
+              "has_new_facts": true,
+              "new_facts": [],
+              "is_substantive_update": true,
+              "should_push_upgrade": true,
+              "reason": "标题改成重大危机，但核心事实没有变化",
+              "push_summary": "none"
+            }
+            """
+        )
+
+        self.assertEqual(payload["event_update_level"], "minor")
+        self.assertFalse(payload["has_new_facts"])
+        self.assertFalse(payload["is_substantive_update"])
+        self.assertFalse(payload["should_push_upgrade"])
+        self.assertEqual(payload["decision"], "ignore")
+
+    def test_parse_event_update_accepts_official_confirmation_major(self) -> None:
+        analyzer = AIAnalyzer.__new__(AIAnalyzer)
+        payload = analyzer._parse_event_update_json(
+            """
+            {
+              "upgrade_level": "major",
+              "has_new_facts": true,
+              "new_facts": ["项目方官方确认漏洞已修复"],
+              "is_substantive_update": true,
+              "should_push_upgrade": true,
+              "reason": "新增官方确认",
+              "push_summary": "项目方确认漏洞已修复"
+            }
+            """
+        )
+
+        self.assertEqual(payload["event_update_level"], "major")
+        self.assertTrue(payload["should_push_upgrade"])
+        self.assertEqual(payload["decision"], "push")
+
+    def test_parse_event_update_accepts_claim_deadline_major(self) -> None:
+        analyzer = AIAnalyzer.__new__(AIAnalyzer)
+        payload = analyzer._parse_event_update_json(
+            """
+            {
+              "upgrade_level": "major",
+              "has_new_facts": true,
+              "new_facts": ["新增 claim 开始时间和领取截止时间"],
+              "is_substantive_update": true,
+              "should_push_upgrade": true,
+              "reason": "新增领取窗口",
+              "push_summary": "空投 claim 时间窗口已公布"
+            }
+            """
+        )
+
+        self.assertEqual(payload["event_update_level"], "major")
+        self.assertEqual(payload["new_facts"], ["新增 claim 开始时间和领取截止时间"])
+        self.assertTrue(payload["should_push_upgrade"])
+
+    def test_parse_event_update_accepts_security_disposal_critical(self) -> None:
+        analyzer = AIAnalyzer.__new__(AIAnalyzer)
+        payload = analyzer._parse_event_update_json(
+            """
+            {
+              "upgrade_level": "critical",
+              "has_new_facts": true,
+              "new_facts": ["交易所冻结攻击者地址", "项目方公布赔付方案"],
+              "is_substantive_update": true,
+              "should_push_upgrade": true,
+              "reason": "新增关键风险处置方案",
+              "push_summary": "交易所冻结攻击地址，项目方公布赔付方案"
+            }
+            """
+        )
+
+        self.assertEqual(payload["event_update_level"], "critical")
+        self.assertTrue(payload["should_push_upgrade"])
+        self.assertEqual(payload["decision"], "push")
+
     def test_user_profile_missing_file_uses_fallback(self) -> None:
         profile = load_user_profile(Path("/definitely/missing/user_profile.yaml"))
 
@@ -2502,7 +2604,15 @@ class PipelineSmokeTests(unittest.IsolatedAsyncioTestCase):
                     "summary_zh": "官方确认漏洞已修复，但是否被利用仍无法验证。",
                 },
             ],
-            event_updates=[{"event_update_level": "major", "reason": "官方确认修复，属于重要新增事实"}],
+            event_updates=[
+                {
+                    "event_update_level": "major",
+                    "has_new_facts": True,
+                    "new_facts": ["官方确认漏洞已修复"],
+                    "should_push_upgrade": True,
+                    "reason": "官方确认修复，属于重要新增事实",
+                }
+            ],
         )
         pipeline = MessagePipeline(cache=cache, analyzer=analyzer, notifier=notifier, repository=repository)
 
@@ -2545,7 +2655,16 @@ class PipelineSmokeTests(unittest.IsolatedAsyncioTestCase):
                 {"event_title": "ZEC无限增发漏洞事件", "summary_zh": "ZEC曝无限增发漏洞。"},
                 {"event_title": "ZEC无限增发漏洞事件", "summary_zh": "官方确认漏洞已被利用并造成重大影响。"},
             ],
-            event_updates=[{"event_update_level": "critical", "decision": "push", "reason": "确认被利用"}],
+            event_updates=[
+                {
+                    "event_update_level": "critical",
+                    "decision": "push",
+                    "has_new_facts": True,
+                    "new_facts": ["官方确认漏洞已被利用并造成重大影响"],
+                    "should_push_upgrade": True,
+                    "reason": "确认被利用",
+                }
+            ],
         )
         pipeline = MessagePipeline(cache=cache, analyzer=analyzer, notifier=notifier, repository=repository)
 
@@ -2616,7 +2735,16 @@ class PipelineSmokeTests(unittest.IsolatedAsyncioTestCase):
                 {"event_title": "ZEC无限增发漏洞事件", "summary_zh": "ZEC曝无限增发漏洞。"},
                 {"event_title": "ZEC无限增发漏洞事件", "summary_zh": "官方确认漏洞已修复。"},
             ],
-            event_updates=[{"event_update_level": "major", "decision": "push", "reason": "官方确认修复"}],
+            event_updates=[
+                {
+                    "event_update_level": "major",
+                    "decision": "push",
+                    "has_new_facts": True,
+                    "new_facts": ["官方确认漏洞已修复"],
+                    "should_push_upgrade": True,
+                    "reason": "官方确认修复",
+                }
+            ],
         )
         pipeline = MessagePipeline(cache=cache, analyzer=analyzer, notifier=notifier, repository=repository)
 
@@ -2660,7 +2788,16 @@ class PipelineSmokeTests(unittest.IsolatedAsyncioTestCase):
                     "decision": "watch",
                 },
             ],
-            event_updates=[{"event_update_level": "major", "decision": "watch", "reason": "新增积分规则，值得观察提醒"}],
+            event_updates=[
+                {
+                    "event_update_level": "major",
+                    "decision": "watch",
+                    "has_new_facts": True,
+                    "new_facts": ["Base Season 活动新增积分规则"],
+                    "should_push_upgrade": True,
+                    "reason": "新增积分规则，值得观察提醒",
+                }
+            ],
         )
         pipeline = MessagePipeline(cache=cache, analyzer=analyzer, notifier=notifier, repository=repository)
 
@@ -2740,6 +2877,60 @@ class PipelineSmokeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(analysis["event_update"]["event_update_level"], "minor")
         self.assertIn("重复报道", analysis["event_update"]["reason"])
 
+    async def test_pipeline_major_update_without_new_facts_is_forced_minor(self) -> None:
+        cache = MockCache()
+        notifier = MockNotifier()
+        repository = MockRepository()
+        analyzer = SequenceAnalyzer(
+            [
+                {
+                    "event_title": "Base Season活动事件",
+                    "summary_zh": "Base 发布 Season 活动。",
+                    "decision": "watch",
+                },
+                {
+                    "event_title": "Base Season活动事件",
+                    "summary_zh": "另一家媒体称 Base Season 活动值得关注。",
+                    "decision": "watch",
+                },
+            ],
+            event_updates=[
+                {
+                    "event_update_level": "major",
+                    "decision": "push",
+                    "reason": "AI 误把重复报道判断为重大升级",
+                }
+            ],
+        )
+        pipeline = MessagePipeline(cache=cache, analyzer=analyzer, notifier=notifier, repository=repository)
+
+        await pipeline.process(
+            SourceMessage(
+                source="telegram_public",
+                source_chat_id="base",
+                source_chat_title="@base",
+                source_message_id=40_101,
+                raw_text="Base 发布 Season 活动。",
+            )
+        )
+        await pipeline.process(
+            SourceMessage(
+                source="telegram_public",
+                source_chat_id="TechFlowDaily",
+                source_chat_title="@TechFlowDaily",
+                source_message_id=40_102,
+                raw_text="另一家媒体称 Base Season 活动值得关注，但没有新增规则。",
+            )
+        )
+
+        self.assertEqual(repository.records[1]["push_status"], "skipped_event_duplicate")
+        self.assertEqual(repository.push_updates, [(1, "sent", None)])
+        self.assertEqual(len(notifier.payloads), 1)
+        analysis = json.loads(repository.records[1]["analysis_json"])
+        self.assertEqual(analysis["event_update"]["event_update_level"], "minor")
+        self.assertFalse(analysis["event_update"]["should_push_upgrade"])
+        self.assertIn("validation_reason", analysis["event_update"])
+
     async def test_pipeline_possible_duplicate_major_event_update_is_pushed(self) -> None:
         cache = MockCache()
         notifier = MockNotifier()
@@ -2767,7 +2958,16 @@ class PipelineSmokeTests(unittest.IsolatedAsyncioTestCase):
                     "decision": "watch",
                 },
             ],
-            event_updates=[{"event_update_level": "major", "decision": "watch", "reason": "新增积分规则，值得提醒"}],
+            event_updates=[
+                {
+                    "event_update_level": "major",
+                    "decision": "watch",
+                    "has_new_facts": True,
+                    "new_facts": ["Base Season活动新增积分规则"],
+                    "should_push_upgrade": True,
+                    "reason": "新增积分规则，值得提醒",
+                }
+            ],
         )
         pipeline = MessagePipeline(cache=cache, analyzer=analyzer, notifier=notifier, repository=repository)
 

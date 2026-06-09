@@ -75,18 +75,48 @@ signal_type 规则：
 
 EVENT_UPDATE_PROMPT = """
 你是 Web3 Alpha 事件编辑。请判断一条已归入现有 Event 的后续消息是否值得再次推送。
+核心原则：
+同一个 event 的后续消息，只有出现“新增事实”时，才允许判断为 major 或 critical。
+如果没有新增事实，即使语气更强、标题更夸张、来源不同、媒体重复报道，也只能是 none 或 minor，不能触发二次推送。
+
+新增事实定义：
+- 官方确认
+- 交易所动作
+- 项目方回应
+- 新的时间窗口
+- 新的 claim/snapshot/deadline
+- 新的资金变化
+- 新的链上证据
+- 新的风险处置方案
+- 新的攻击/漏洞细节
+- 新的交易机会或操作建议
+
+不是新增事实：
+- 同一事实换一种说法
+- 另一家媒体重复报道
+- 标题更夸张
+- 摘要更完整但核心信息没变
+- 只是补充背景
+- 价格小幅变化但没有新因果
+- 来源增加但没有新内容
+
 只输出 JSON：
 {
-  "event_update_level": "minor / major / critical 三选一",
-  "decision": "push / watch / ignore 三选一",
-  "reason": "中文说明"
+  "upgrade_level": "none|minor|major|critical",
+  "has_new_facts": true,
+  "new_facts": ["新增事实1"],
+  "is_substantive_update": true,
+  "should_push_upgrade": true,
+  "reason": "中文说明",
+  "push_summary": "如果需要再次推送，写一句话摘要；否则写 none"
 }
 
-判断标准：
-- minor：重复报道、措辞变化、补充很小、没有新增关键事实，不应再次推送。
-- major：出现重要新增事实，例如漏洞已被确认/修复、损失金额显著变化、官方回应、关键人物/机构新动作、价格或清算影响显著扩大。
-- critical：极重大升级，例如确认被利用、巨额损失、交易所/项目紧急处置、系统性风险、需立即关注。
-- 只有 major/critical 且值得再次提醒用户时，decision 才输出 push/watch；重复报道或弱补充输出 ignore。
+硬规则：
+- 如果 has_new_facts=false，upgrade_level 只能是 none 或 minor。
+- 如果 new_facts 为空，should_push_upgrade 必须是 false。
+- 只有 has_new_facts=true 且 new_facts 非空，才允许 major/critical。
+- 只有 major/critical 且 should_push_upgrade=true，才允许二次推送。
+- 重复报道、换标题、换来源、补背景，一律 should_push_upgrade=false。
 只输出 JSON，不要输出其他内容。
 """.strip()
 
@@ -171,7 +201,13 @@ class AIAnalyzer:
             logger.exception("event update analysis failed")
             return {
                 "event_update_level": "minor",
+                "upgrade_level": "minor",
+                "has_new_facts": False,
+                "new_facts": [],
+                "is_substantive_update": False,
+                "should_push_upgrade": False,
                 "reason": "事件升级判断失败，按保守策略不重复推送",
+                "push_summary": "none",
             }
 
     async def _analyze_with_openai(self, text: str) -> dict:
@@ -263,13 +299,29 @@ class AIAnalyzer:
         elif "{" in normalized and "}" in normalized:
             normalized = normalized[normalized.find("{") : normalized.rfind("}") + 1]
         payload = json.loads(normalized)
-        level = str(payload.get("event_update_level", "minor")).lower()
-        if level not in {"minor", "major", "critical"}:
+        level = str(payload.get("upgrade_level") or payload.get("event_update_level") or "minor").lower()
+        if level not in {"none", "minor", "major", "critical"}:
             level = "minor"
+        new_facts = _string_list(payload.get("new_facts"))
+        has_new_facts = bool(payload.get("has_new_facts")) and bool(new_facts)
+        should_push_upgrade = bool(payload.get("should_push_upgrade"))
+        if not has_new_facts and level in {"major", "critical"}:
+            level = "minor"
+            should_push_upgrade = False
+        if not new_facts:
+            should_push_upgrade = False
+        if level in {"none", "minor"}:
+            should_push_upgrade = False
         return {
             "event_update_level": level,
-            "decision": normalize_decision(payload.get("decision")),
+            "upgrade_level": level,
+            "decision": "push" if should_push_upgrade and level in {"major", "critical"} else "ignore",
+            "has_new_facts": has_new_facts,
+            "new_facts": new_facts,
+            "is_substantive_update": bool(payload.get("is_substantive_update")) and has_new_facts,
+            "should_push_upgrade": should_push_upgrade,
             "reason": payload.get("reason", ""),
+            "push_summary": str(payload.get("push_summary") or "none"),
         }
 
 
@@ -342,3 +394,13 @@ def _safe_float(value, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _string_list(value) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, tuple):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if value in (None, ""):
+        return []
+    return [str(value).strip()]

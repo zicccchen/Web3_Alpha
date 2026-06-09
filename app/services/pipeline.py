@@ -106,12 +106,18 @@ class MessagePipeline:
             event_upgrade_level = None
             should_mark_event_upgrade = False
             if event_match and not event_match.is_new_event and should_push:
-                event_update = await self._event_update(event_match.event_id, cleaned.cleaned_text, analysis)
+                event_update = _validate_event_update(
+                    await self._event_update(event_match.event_id, cleaned.cleaned_text, analysis)
+                )
                 analysis["event_update"] = event_update
                 update_level = event_update.get("event_update_level", "minor")
                 event_upgrade_level = update_level
                 upgrade_decision = normalize_decision(event_update.get("decision", ai_decision))
-                if update_level in {"major", "critical"} and _should_push_decision(upgrade_decision):
+                if (
+                    update_level in {"major", "critical"}
+                    and bool(event_update.get("should_push_upgrade"))
+                    and _should_push_decision(upgrade_decision)
+                ):
                     effective_decision = upgrade_decision
                     analysis["effective_decision"] = effective_decision
                     should_mark_event_upgrade = True
@@ -409,3 +415,41 @@ def _is_repeated_event_update(event, cleaned_text: str, analysis: dict) -> bool:
 def _core_event_entities(entities: set[str]) -> set[str]:
     generic = {"btc", "eth", "sol", "usdt", "usdc", "bnb", "usd", "u"}
     return {entity for entity in entities if entity not in generic}
+
+
+def _validate_event_update(event_update: dict | None) -> dict:
+    payload = dict(event_update or {})
+    level = str(payload.get("upgrade_level") or payload.get("event_update_level") or "minor").lower()
+    if level not in {"none", "minor", "major", "critical"}:
+        level = "minor"
+    new_facts = _string_list(payload.get("new_facts"))
+    has_new_facts = bool(payload.get("has_new_facts")) and bool(new_facts)
+    should_push_upgrade = bool(payload.get("should_push_upgrade"))
+    if not has_new_facts and level in {"major", "critical"}:
+        level = "minor"
+        should_push_upgrade = False
+        payload["validation_reason"] = "major/critical requires has_new_facts=true and non-empty new_facts"
+    if not new_facts:
+        should_push_upgrade = False
+    if level in {"none", "minor"}:
+        should_push_upgrade = False
+    payload["event_update_level"] = level
+    payload["upgrade_level"] = level
+    payload["has_new_facts"] = has_new_facts
+    payload["new_facts"] = new_facts
+    payload["should_push_upgrade"] = should_push_upgrade
+    if should_push_upgrade and level in {"major", "critical"}:
+        payload["decision"] = normalize_decision(payload.get("decision") or "push")
+    else:
+        payload["decision"] = "ignore"
+    return payload
+
+
+def _string_list(value) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, tuple):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if value in (None, ""):
+        return []
+    return [str(value).strip()]
