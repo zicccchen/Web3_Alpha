@@ -114,7 +114,21 @@ KEY_PHRASE_ALIASES = {
     "claim": ("领取", "申领", "claim"),
     "funding": ("融资", "funding", "raise"),
     "partnership": ("合作", "partnership"),
+    "exchange_flow": ("转入", "存入", "转出", "转账", "转至", "存入", "提现", "deposit", "withdraw", "transfer"),
+    "buy": ("买入", "增持", "bought", "buy"),
+    "sell": ("卖出", "减持", "sold", "sell"),
 }
+
+ENTITY_ALIASES = {
+    "blackrock": ("贝莱德", "blackrock", "blackrock相关", "贝莱德关联"),
+    "coinbase": ("coinbase", "coin base"),
+    "binance": ("币安", "binance"),
+    "okx": ("欧易", "okx"),
+    "bybit": ("bybit",),
+    "grayscale": ("灰度", "grayscale"),
+}
+
+EXCHANGE_ENTITIES = {"coinbase", "binance", "okx", "bybit", "kraken", "bitstamp"}
 
 
 @dataclass(frozen=True)
@@ -301,14 +315,14 @@ def score_event_candidate(
         & (candidate_features.entities | candidate_features.projects | candidate_features.tokens)
     )
     token_overlap = sorted((current_features.key_phrases | current_features.tokens) & (candidate_features.key_phrases | candidate_features.tokens))
-    number_overlap = sorted(current_features.numbers & candidate_features.numbers)
+    number_overlap = sorted(_number_overlap(current_features.numbers, candidate_features.numbers))
     key_phrase_overlap = sorted(current_features.key_phrases & candidate_features.key_phrases)
     entity_overlap_score = overlap_score(
         current_features.entities | current_features.projects | current_features.tokens,
         candidate_features.entities | candidate_features.projects | candidate_features.tokens,
     )
     token_overlap_score = overlap_score(current_features.key_phrases | current_features.tokens, candidate_features.key_phrases | candidate_features.tokens)
-    number_overlap_score = overlap_score(current_features.numbers, candidate_features.numbers)
+    number_overlap_score = number_overlap_score_fn(current_features.numbers, candidate_features.numbers)
     title_similarity = round(text_similarity(event_title, candidate_title), 4)
     summary_similarity = round(text_similarity(current_summary_text, candidate_text), 4)
     raw_text_similarity = round(text_similarity(message_text, candidate_text), 4)
@@ -389,6 +403,8 @@ def extract_event_features(text: str) -> EventFeatures:
         for symbol in SYMBOL_RE.findall(normalized)
         if len(symbol) >= 2 and symbol.lower() not in GENERIC_SYMBOLS
     }
+    aliased_entities = _alias_entities(lower, compact)
+    symbols.update(aliased_entities)
     projects = {symbol for symbol in symbols if symbol in KNOWN_PROJECTS}
     tokens = {symbol for symbol in symbols if symbol in KNOWN_TOKENS or symbol.isupper()}
     entities = set(projects) | set(tokens)
@@ -414,6 +430,14 @@ def extract_event_features(text: str) -> EventFeatures:
     )
 
 
+def _alias_entities(lower_text: str, compact_text: str) -> set[str]:
+    entities: set[str] = set()
+    for normalized_entity, aliases in ENTITY_ALIASES.items():
+        if any(alias.lower() in lower_text or alias.lower() in compact_text for alias in aliases):
+            entities.add(normalized_entity)
+    return entities
+
+
 def event_features(text: str) -> dict[str, set[str]]:
     features = extract_event_features(text)
     return {
@@ -437,16 +461,41 @@ def normalize_event_title(title: str | None) -> str:
 
 
 def deterministic_event_key(event_title: str, event_summary: str, message_text: str, created_at: datetime | None = None) -> str:
-    features = extract_event_features(" ".join(part for part in (event_title, event_summary, message_text) if part))
+    full_text = " ".join(part for part in (event_title, event_summary, message_text) if part)
+    features = extract_event_features(full_text)
     parts = [
         *sorted(features.projects or features.entities)[:4],
         *sorted(features.tokens - features.projects)[:3],
         *sorted(features.key_phrases)[:4],
+        *_event_action_signature(full_text, features),
     ]
     if not parts:
         return event_key_for_title(event_title)
     bucket = _time_bucket(created_at)
     return sha256("|".join([*parts, bucket]).encode("utf-8")).hexdigest()
+
+
+def _event_action_signature(text: str, features: EventFeatures) -> list[str]:
+    """Keep deterministic keys from merging different institutional flow actions."""
+    lower = text.lower()
+    compact = normalize_event_title(text).lower()
+    signature: list[str] = []
+    if "exchange_flow" in features.key_phrases:
+        if any(term in lower or term in compact for term in ("转入", "存入", "转至", "deposit", "transfer to")):
+            signature.append("flow_in")
+        elif any(term in lower or term in compact for term in ("转出", "提现", "withdraw")):
+            signature.append("flow_out")
+        else:
+            signature.append("flow")
+    if "sell" in features.key_phrases:
+        signature.append("sell")
+    if "buy" in features.key_phrases:
+        signature.append("buy")
+    if {"buy", "sell"} <= features.key_phrases:
+        signature.append("rebalance")
+    if signature and features.numbers:
+        signature.extend(f"num:{number}" for number in sorted(features.numbers)[:3])
+    return signature
 
 
 def event_key_for_title(title: str) -> str:
@@ -494,6 +543,45 @@ def overlap_score(left: set[str], right: set[str]) -> float:
     return len(left & right) / max(1, min(len(left), len(right)))
 
 
+def number_overlap_score_fn(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    return len(_number_overlap(left, right)) / max(1, min(len(left), len(right)))
+
+
+def _number_overlap(left: set[str], right: set[str]) -> set[str]:
+    overlap = set(left & right)
+    for left_value in left:
+        for right_value in right:
+            if _numbers_close(left_value, right_value):
+                overlap.add(left_value if len(left_value) <= len(right_value) else right_value)
+    return overlap
+
+
+def _numbers_close(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    left_number, left_suffix = _number_parts(left)
+    right_number, right_suffix = _number_parts(right)
+    if left_number is None or right_number is None:
+        return False
+    if left_suffix != right_suffix:
+        return False
+    larger = max(abs(left_number), abs(right_number))
+    if larger == 0:
+        return True
+    return abs(left_number - right_number) / larger <= 0.02
+
+
+def _number_parts(value: str) -> tuple[float | None, str]:
+    suffix = "%" if value.endswith("%") else ""
+    raw = value[:-1] if suffix else value
+    try:
+        return float(raw), suffix
+    except ValueError:
+        return None, suffix
+
+
 def not_matched_reason(
     entity_overlap: list[str],
     token_overlap: list[str],
@@ -534,11 +622,24 @@ def _strong_match(
         return True
     if {"humanity", "h"} & entity_set and _has_humanity_security_overlap(key_phrase_set):
         return True
+    if "exchange_flow" in key_phrase_set:
+        return _institution_exchange_flow_match(entity_set, key_phrase_set, number_overlap)
     if len(important_entities) >= 2 and (key_phrase_set or number_overlap):
         return True
     if len(important_entities) >= 1 and len(key_phrase_set) >= 2:
         return True
     return False
+
+
+def _institution_exchange_flow_match(entity_set: set[str], key_phrase_set: set[str], number_overlap: list[str]) -> bool:
+    if "exchange_flow" not in key_phrase_set:
+        return False
+    if not number_overlap:
+        return False
+    has_exchange = bool(entity_set & EXCHANGE_ENTITIES)
+    has_asset = bool(entity_set & GENERIC_ASSET_TOKENS)
+    non_generic_entities = entity_set - GENERIC_ASSET_TOKENS - EXCHANGE_ENTITIES
+    return has_exchange and has_asset and bool(non_generic_entities)
 
 
 def _contains_humanity_h_token(text: str) -> bool:

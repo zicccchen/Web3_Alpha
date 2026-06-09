@@ -52,7 +52,7 @@ from app.services.duplicates import (
     find_possible_duplicate,
     text_similarity,
 )
-from app.services.event_cluster import EventClusterer, best_event_match, extract_event_features, rank_event_candidates
+from app.services.event_cluster import EventClusterer, best_event_match, deterministic_event_key, extract_event_features, rank_event_candidates
 from app.services.event_backfill import apply_event_backfill_marks, format_event_backfill_payload, plan_event_backfill
 from app.services.l1_adapter import L1Adapter, L1Record
 from app.services.repository import _analysis_from_message_data, _record_from_message_data
@@ -2066,6 +2066,94 @@ class EventClusterTests(unittest.TestCase):
         self.assertIn("close_position", features.key_phrases)
         self.assertIn("vault_nav", features.key_phrases)
         self.assertIn("50%", features.numbers)
+
+    def test_event_feature_extraction_normalizes_chinese_entity_aliases(self) -> None:
+        features = extract_event_features("贝莱德关联地址向 Coinbase 转入 3966 枚 BTC，价值约 2.444 亿美元。")
+
+        self.assertIn("blackrock", features.entities)
+        self.assertIn("coinbase", features.entities)
+        self.assertIn("btc", features.tokens)
+        self.assertIn("exchange_flow", features.key_phrases)
+
+    def test_blackrock_coinbase_btc_transfer_reports_match_existing_event(self) -> None:
+        existing = SimpleNamespace(
+            id=1561,
+            event_title="贝莱德大额转入Coinbase",
+            event_summary="贝莱德关联地址向Coinbase转入3966枚BTC，约2.44亿美元。",
+            latest_summary="贝莱德关联地址向Coinbase转入3966枚BTC，约2.44亿美元。",
+            last_seen_at=datetime(2026, 6, 9, 11, 52, tzinfo=timezone.utc),
+        )
+
+        details = rank_event_candidates(
+            "贝莱德向Coinbase转入3966枚BTC",
+            "贝莱德向Coinbase存入3966枚BTC，约2.444亿美元，后续可能继续转入更多资产。",
+            "贝莱德刚刚向 Coinbase 存入 3966 枚比特币（BTC），价值约 2.444 亿美元。",
+            [existing],
+            message_created_at=datetime(2026, 6, 9, 11, 53, tzinfo=timezone.utc),
+        )
+        match = best_event_match(
+            "贝莱德向Coinbase转入3966枚BTC",
+            "贝莱德向Coinbase存入3966枚BTC，约2.444亿美元，后续可能继续转入更多资产。",
+            "贝莱德刚刚向 Coinbase 存入 3966 枚比特币（BTC），价值约 2.444 亿美元。",
+            [existing],
+        )
+
+        self.assertTrue(details[0].matched)
+        self.assertIn("blackrock", details[0].entity_overlap)
+        self.assertIn("3970", details[0].number_overlap)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.event.id, 1561)
+        self.assertEqual(match.reason, "strong_entity_token_time_match")
+
+    def test_btc_coinbase_overlap_without_institution_or_transfer_does_not_merge(self) -> None:
+        existing = SimpleNamespace(
+            id=1,
+            event_title="Coinbase BTC储备流出",
+            event_summary="Coinbase地址出现BTC流出，市场关注交易所储备变化。",
+        )
+
+        match = best_event_match(
+            "BTC价格突破63000美元",
+            "BTC价格上涨，Coinbase交易量提升。",
+            "BTC突破63000美元，Coinbase现货交易活跃。",
+            [existing],
+        )
+
+        self.assertIsNone(match)
+
+    def test_blackrock_coinbase_different_transfer_amount_does_not_merge(self) -> None:
+        existing = SimpleNamespace(
+            id=1083,
+            event_title="贝莱德向Coinbase转入BTC和ETH",
+            event_summary="贝莱德关联地址向Coinbase转入3300枚BTC和15095枚ETH，价值超2.34亿美元。",
+            latest_summary="贝莱德关联地址向Coinbase转入3300枚BTC和15095枚ETH，价值超2.34亿美元。",
+            last_seen_at=datetime(2026, 6, 8, 16, 0, tzinfo=timezone.utc),
+        )
+
+        match = best_event_match(
+            "贝莱德向Coinbase转入3966枚BTC",
+            "贝莱德向Coinbase存入3966枚BTC，约2.444亿美元。",
+            "贝莱德刚刚向 Coinbase 存入 3966 枚比特币（BTC），价值约 2.444 亿美元。",
+            [existing],
+        )
+
+        self.assertIsNone(match)
+
+    def test_blackrock_exchange_flow_and_rebalance_have_different_event_keys(self) -> None:
+        transfer_key = deterministic_event_key(
+            "贝莱德向Coinbase转入3966枚BTC",
+            "贝莱德关联地址向Coinbase转入3966枚BTC，约2.44亿美元。",
+            "贝莱德向 Coinbase 存入 3966 枚 BTC，价值约 2.444 亿美元。",
+            created_at=datetime(2026, 6, 9, 11, 53, tzinfo=timezone.utc),
+        )
+        rebalance_key = deterministic_event_key(
+            "贝莱德卖出BTC并买入ETH",
+            "贝莱德关联地址卖出3671枚BTC并买入10566枚ETH，出现资产调仓。",
+            "贝莱德近期卖出 3671 枚 BTC，同时买入 10566 枚 ETH。",
+            created_at=datetime(2026, 6, 9, 12, 33, tzinfo=timezone.utc),
+        )
+
+        self.assertNotEqual(transfer_key, rebalance_key)
 
     def test_zec_messages_match_existing_event(self) -> None:
         existing = SimpleNamespace(
